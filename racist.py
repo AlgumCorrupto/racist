@@ -44,7 +44,7 @@ def extract_from_name(memcard: ps2mc, profile: str, name: str, filename: str, di
         raise Exception(f"Race {name} not found in memory card!")
     extract(memcard, profile, race_loc, filename, directory)
 
-def get_all_race_names(racefile) -> list[tuple[str, int, str, int]]:
+def get_all_race_info(racefile) -> list[tuple[str, int, str, int]]:
     racenames = []
     for city in CITIES:
         for code in range(RACE_QTD):
@@ -105,6 +105,26 @@ def extract_all(memcard: ps2mc, profile: str, directory: str) -> None:
         for code in range(RACE_QTD):
             extract(memcard, profile, get_offset_from_city_and_code(city, code), directory=str(dir_path)+'/')
 
+def print_info(memcard: ps2mc, profile: str) -> None:
+    racefile = get_races_file(memcard, profile)
+    info = get_all_race_info(racefile)
+    sd_races = [race for race in info if race [2] == 'SD']
+    atl_races = [race for race in info if race[2] == 'ATL']
+    det_races = [race for race in info if race[2] == 'DET']
+    tok_races = [race for race in info if race[2] == 'TOK']
+
+    print("-- San Diego --")
+    for race in sd_races:
+        print(f'"{race[0]}"')
+    print("-- Atlanta --")
+    for race in atl_races:
+        print(f'"{race[0]}"')
+    print("-- Detroit --")
+    for race in det_races:
+        print(f'"{race[0]}"')
+    print("-- Tokyo --")
+    for race in tok_races:
+        print(f'"{race[0]}"')
 
 def pack(memcard: ps2mc, profile: str, filename: str, position: int, new_name: str | None = None) -> None:
     # Read input race file
@@ -132,7 +152,7 @@ def pack(memcard: ps2mc, profile: str, filename: str, position: int, new_name: s
         current_race_name = input_bytes[0x10 + 0x02 : 0x10 + 0x02 + MAX_NAME].decode('ascii', errors='ignore').rstrip('\x00')
 
     # Check for duplicate names
-    all_race_names_and_idx = get_all_race_names(racefile)
+    all_race_names_and_idx = get_all_race_info(racefile)
     all_race_names = [name for name, _, _, _ in all_race_names_and_idx]
     try:
         custom_race_pos = all_race_names.index(current_race_name)
@@ -211,6 +231,7 @@ racist -p  <memory-card-file> <profile-name> -r <race-id> -f <input-file>
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-x', '--extract', action='store_true', help='Extract race mode')
     group.add_argument('-p', '--pack', action='store_true', help='Pack race mode')
+    group.add_argument('-l', '--list_races', action='store_true', help='List races from save file')
     parser.add_argument('-f', '--file', help='File to write/read the race file')
     parser.add_argument('-a', '--all', action='store_true', help='Extract alraces')
     parser.add_argument('-d', '--directory', help='Directory to write the extracted races with the -a mode')
@@ -261,6 +282,9 @@ racist -p  <memory-card-file> <profile-name> -r <race-id> -f <input-file>
                     raise Exception("Can't have a race name bigger than 17 characters")
 
             pack(memcard, args.profile, args.file, args.store_at, args.rename)
+        elif args.list_races:
+            print_info(memcard, args.profile)
+
         memcard.close()
         f.close()
 
