@@ -78,7 +78,8 @@ def extract(
     )
 
     base, ext = os.path.splitext(filename)
-    base = re.sub(r"[^A-Za-z0-9_-]", "", base)
+    base = re.sub(r"[^A-Za-z0-9 _-]", "", base)
+
     
     if not base:
         base = "race"
