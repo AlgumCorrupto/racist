@@ -29,7 +29,7 @@ def get_city_from_race_loc(race_loc: int) -> str:
 def get_offset_from_city_and_code(city: str, code: int) -> int:
     return CITIES_ADDR[city] + code * RACE_SIZE
 
-def extract_from_name(memcard: ps2mc, profile: str, name: str, filename: str, directory: str = './') -> None:
+def extract_from_name(memcard: ps2mc, profile: str, name: str, filename: str | None, directory: str = './') -> None:
     racefile = get_races_file(memcard, profile)
     race_name = name.encode(encoding='ascii')
     race_name = race_name[:MAX_NAME]
@@ -80,7 +80,7 @@ def extract(
     base, ext = os.path.splitext(filename)
     city_lower = city_str.lower()
 
-    expected_ext = f".{city_lower}.race"
+    expected_ext = f".{city_lower}.mc3race"
     if ext.lower() != expected_ext:
         filename = f"{base}{expected_ext}"
 
@@ -119,6 +119,10 @@ def print_info(memcard: ps2mc, profile: str) -> None:
     print("-- Tokyo --")
     for race in tok_races:
         print(f'"{race[0]}"')
+
+def get_race_names(racefile: bytes) -> list[str]:
+    info = get_all_race_info(racefile)
+    return [race[0] for race in info]
 
 def pack(memcard: ps2mc, profile: str, filename: str, position: int, new_name: str | None = None) -> None:
     # Read input race file
