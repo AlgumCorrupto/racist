@@ -1,14 +1,10 @@
 # -*- mode: python ; coding: utf-8 -*-
 
 import os
-from PyInstaller.utils.hooks import (
-    collect_submodules,
-    collect_data_files
-)
 
 block_cipher = None
 
-# --- Collect assets folder recursively ---
+# --- Collect assets recursively ---
 assets_datas = []
 for root, dirs, files in os.walk("assets"):
     for file in files:
@@ -16,41 +12,30 @@ for root, dirs, files in os.walk("assets"):
         relative_path = os.path.relpath(root, "assets")
         assets_datas.append((full_path, os.path.join("assets", relative_path)))
 
-# --- Collect PySide6 ---
-pyside_hidden = collect_submodules("PySide6")
-pyside_datas = collect_data_files("PySide6")
-
-# --- Collect qt-themes ---
-qt_themes_hidden = collect_submodules("qt_themes")
-qt_themes_datas = collect_data_files("qt_themes")
-
-# --- Collect mymcplus ---
-mymcplus_hidden = collect_submodules("mymcplus")
-mymcplus_datas = collect_data_files("mymcplus")
-
 a = Analysis(
     ['racist.py'],
     pathex=['src'],
     binaries=[],
-    datas=(
-        assets_datas
-        + pyside_datas
-        + qt_themes_datas
-        + mymcplus_datas
-    ),
-    hiddenimports=(
-        pyside_hidden
-        + qt_themes_hidden
-        + mymcplus_hidden
-    ),
+    datas=assets_datas,
+    hiddenimports=[],   # let PyInstaller auto-detect Qt modules
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=[
+        "PySide6.QtNetwork",
+        "PySide6.QtQml",
+        "PySide6.QtQuick",
+        "PySide6.QtWebEngine",
+        "PySide6.QtWebEngineCore",
+        "PySide6.QtWebEngineWidgets",
+        "PySide6.QtMultimedia",
+        "PySide6.QtPositioning",
+        "PySide6.QtBluetooth",
+    ],
     noarchive=False,
 )
 
-pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+pyz = PYZ(a.pure, a.zipped_data)
 
 exe = EXE(
     pyz,
@@ -63,6 +48,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
+    icon='assets/icon.ico',
 )
