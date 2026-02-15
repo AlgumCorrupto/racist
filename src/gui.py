@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QMessageBox, QPushButton, QHBoxLayout, QComboBox, QHeaderView
 )
 
+
 from PySide6.QtWidgets import QAbstractItemView
 from mymcplus.ps2mc import ps2mc, DF_DIR, DF_EXISTS
 from typing import cast
@@ -19,6 +20,67 @@ import qt_themes
 from PySide6.QtCore import QObject, Signal
 import re
 
+from configparser import ConfigParser
+
+class History(QObject):
+    def __init__(self):
+        super().__init__()
+        self.profile: str | None = None
+        self.memcard_path: Path | None = None
+        self.extract_output_directory: Path | None = None
+        self.pack_race_file: Path | None = None
+
+        self.get_ini(Path('./.goodies.ini'))
+
+    def get_ini(self, ini_file: Path) -> None:
+        if not ini_file.exists():
+            return
+    
+        goodies = ConfigParser()
+        goodies.read(ini_file)
+    
+        section = "last_sesh"
+    
+        if not goodies.has_section(section):
+            return
+    
+        profile = goodies[section].get("profile")
+        if profile:
+            self.profile = profile
+    
+        memcard_path = goodies[section].get("memcard_path")
+        if memcard_path:
+            self.memcard_path = Path(memcard_path)
+    
+        extract_dir = goodies[section].get("extract_output_directory")
+        if extract_dir:
+            self.extract_output_directory = Path(extract_dir)
+    
+        pack_race = goodies[section].get("pack_race_file")
+        if pack_race:
+            self.pack_race_file = Path(pack_race)
+    
+    
+    def set_ini(self, ini_file: Path) -> None:
+        goodies = ConfigParser()
+        section = "last_sesh"
+    
+        goodies.add_section(section)
+    
+        if self.profile:
+            goodies[section]["profile"] = self.profile
+    
+        if self.memcard_path:
+            goodies[section]["memcard_path"] = str(self.memcard_path)
+    
+        if self.extract_output_directory:
+            goodies[section]["extract_output_directory"] = str(self.extract_output_directory)
+    
+        if self.pack_race_file:
+            goodies[section]["pack_race_file"] = str(self.pack_race_file)
+    
+        with open(ini_file, "w") as f:
+            goodies.write(f)
 class AppState(QObject):
     profileChanged = Signal(object)
     memcardChanged = Signal(object)
@@ -32,6 +94,7 @@ class AppState(QObject):
         self._memcard: ps2mc | None = None
         self._memcard_file: BufferedRandom | None = None
         self._memcard_path: Path | None = None
+        self.history =  History()
 
     @property
     def profile(self) -> str:
@@ -58,12 +121,15 @@ class AppState(QObject):
         self._memcard = ps2mc(self._memcard_file)
         self.memcardChanged.emit(self._memcard)
 
-    def store_state(self):
+    def shutdown(self):
+        self.close_memcard()
+        self.history.set_ini(Path('./.goodies.ini'))
+
+    def close_memcard(self):
         if self._memcard is not None:
             self._memcard.close()
         if self._memcard_file is not None:
             self._memcard_file.close()
-
 
 class MainView(QWidget):
     stack: QStackedWidget
@@ -147,6 +213,9 @@ class MainView(QWidget):
 
     def back(self):
         self.pop()
+    
+    def shutdown(self):
+        self.state.shutdown()
 
 class ProfileSelect(QWidget):
     state: AppState
@@ -224,6 +293,7 @@ class ProfileSelect(QWidget):
 
     def commit(self, profile: str):
         self.state.profile = profile
+        self.state.history.profile = profile
 
     def next(self) -> None:
         next = ActionSelect(self.state)
@@ -241,6 +311,8 @@ class MemcardSelect(QWidget):
         # Path input + browse button
         self.path_edit = QLineEdit()
         self.path_edit.setPlaceholderText("Choose .ps2 memory card file")
+        if self.state.history.memcard_path is not None:
+            self.path_edit.setText(str(self.state.history.memcard_path))
     
         browse_btn = QPushButton("Browse")
         browse_btn.clicked.connect(self.open_file_dlg)
@@ -296,6 +368,7 @@ class MemcardSelect(QWidget):
 
     def commit(self, memcard_path: Path) -> None:
         self.state.memcard = memcard_path
+        self.state.history.memcard_path = memcard_path
 
     def open_file_dlg(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
@@ -361,6 +434,8 @@ class ExtractView(QWidget):
 
         self.dir_edit = QLineEdit()
         self.dir_edit.setPlaceholderText("Select destination directory")
+        if self.state.history.extract_output_directory is not None:
+            self.dir_edit.setText(str(self.state.history.extract_output_directory))
 
         browse_btn = QPushButton("Browse")
         browse_btn.clicked.connect(self.open_directory_dlg)
@@ -468,6 +543,7 @@ class ExtractView(QWidget):
         profile = self.state.profile
 
         extract_all(memcard, profile, str(directory))
+        self.state.history.extract_output_directory = directory
 
         QMessageBox.information(self, "Success!", f"Races extracted at {directory}")
 
@@ -521,6 +597,9 @@ class PackView(QWidget):
         submit_btn.clicked.connect(self.submit)  # directly call submit
         main_layout.addWidget(submit_btn, alignment=Qt.AlignmentFlag.AlignRight)
 
+        if self.state.history.pack_race_file is not None:
+            self.set_file(str(self.state.history.pack_race_file))
+
     def submit(self) -> None:
         """
         Gather inputs from widgets and run validation + confirmation + pack
@@ -533,6 +612,8 @@ class PackView(QWidget):
         if error:
             self.show_error_dlg(error)
             return
+
+        self.state.history.pack_race_file = Path(file_text)
 
         self.show_are_you_sure_dlg(file_text, position, new_name)
 
@@ -595,14 +676,18 @@ class PackView(QWidget):
             "Race Files (*.mc3race);;All Files (*)"
         )
         if file_path:
-            self.file_edit.setText(file_path)
-            filename = os.path.basename(file_path)
-            # Expect format: name.city.mc3race
-            if filename.lower().endswith(".mc3race"):
-                base = filename[:-len(".mc3race")]
-                # Remove last ".city"
-                name = base.rsplit(".", 1)[0]
-                self.race_name.setText(name)
+            self.set_file(file_path)
+
+    def set_file(self, file_path: str) -> None:
+        self.file_edit.setText(file_path)
+        filename = os.path.basename(file_path)
+        # Expect format: name.city.mc3race
+        if filename.lower().endswith(".mc3race"):
+            base = filename[:-len(".mc3race")]
+            # Remove last ".city"
+            name = base.rsplit(".", 1)[0]
+            self.race_name.setText(name)
+
 
     def show_error_dlg(self, error: str) -> None:
         QMessageBox.critical(self, "Error", error)
@@ -650,7 +735,7 @@ def main():
     qt_themes.set_theme('monokai')
 
     main_wind = MainView()
-    main_wind.setWindowTitle("RACe InSTtrument")
+    main_wind.setWindowTitle("Race Instrument")
     main_wind.setWindowIcon(QIcon("./assets/icon.png"))
 
     main_wind.setWindowFlags(
@@ -662,7 +747,7 @@ def main():
     # Set initial size (floating, not fullscreen)
     main_wind.resize(400, 300)
 
-    app.aboutToQuit.connect(main_wind.state.store_state)
+    app.aboutToQuit.connect(main_wind.state.shutdown)
 
     main_wind.show()
     app.exec()
