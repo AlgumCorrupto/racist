@@ -7,7 +7,7 @@ from PySide6.QtWidgets import (
     QApplication, QFileDialog, QSpinBox, QLineEdit,
     QFormLayout, QLabel, QPushButton, QStackedWidget, QWidget,
     QVBoxLayout, QListView, QFrame, QTabWidget, QTableView,
-    QMessageBox, QPushButton, QHBoxLayout
+    QMessageBox, QPushButton, QHBoxLayout, QComboBox, QHeaderView
 )
 from PySide6.QtWidgets import QAbstractItemView
 from mymcplus.ps2mc import ps2mc, DF_DIR, DF_EXISTS
@@ -122,19 +122,26 @@ class ProfileSelect(QWidget):
     def __init__(self, state: AppState):
         super().__init__()
         self.state = state
-
+    
         form_layout = QFormLayout(self)
-
-        profile_name_label = QLabel("Profile Name:")  # the label
-        profile_name_wdg = QLineEdit()
-        profile_name_wdg.setPlaceholderText("profile name here")
-
-        form_layout.addRow(profile_name_label, profile_name_wdg)
-
+    
+        profile_name_label = QLabel("Profile:")
+    
+        profile_combo = QComboBox()
+        profile_combo.setPlaceholderText("Select a profile")
+    
+        # Populate with existing profiles
+        profiles = self.find_all_profiles()
+        profile_combo.addItems(profiles)
+    
+        form_layout.addRow(profile_name_label, profile_combo)
+    
         submit = QPushButton("Next")
         form_layout.addRow(submit)
-
-        submit.clicked.connect(lambda: self.submit(profile_name_wdg.text()))
+    
+        submit.clicked.connect(
+            lambda: self.submit(profile_combo.currentText())
+        )
 
 
     def submit(self, profile: str) -> None:
@@ -151,7 +158,6 @@ class ProfileSelect(QWidget):
         if len(profile) == 0:
             return "Profile name not informed!"
         profiles = self.find_all_profiles()
-        print(profiles)
         if profile not in profiles:
             return "This profile is not in the memory card!"
         return None
@@ -174,7 +180,6 @@ class ProfileSelect(QWidget):
     
                 if (mode & DF_DIR):
                     match = profile_pattern.match(name)
-                    print(name)
                     if match:
                         profiles.append(match.group(1))
         finally:
@@ -340,6 +345,8 @@ class ExtractView(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.verticalHeader().setVisible(False)
+        self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setSortingEnabled(True)
 
         main_layout.addWidget(self.table)
@@ -443,22 +450,23 @@ class PackView(QWidget):
 
         main_layout = QVBoxLayout(self)
 
-        # --------------------
-        # Race Table (read-only, scrollable, sortable)
-        # --------------------
         self.table = QTableView()
         self.table.setModel(self.build_race_model())
         self.table.setEditTriggers(QTableView.EditTrigger.NoEditTriggers)
         self.table.setSelectionMode(QTableView.SelectionMode.NoSelection)
         self.table.setSelectionBehavior(QTableView.SelectionBehavior.SelectRows)
         self.table.setSortingEnabled(True)
+        self.table.verticalHeader().setVisible(False)
         self.table.horizontalHeader().setStretchLastSection(True)
-
         main_layout.addWidget(QLabel("Current Races on Memory Card:"))
         main_layout.addWidget(self.table)
 
         form_layout = QFormLayout()
 
+        # Name input
+        self.race_name = QLineEdit()
+        self.race_name.setMaxLength(MAX_NAME)
+        form_layout.addRow("Name:", self.race_name)
         # File input
         file_layout = QHBoxLayout()
         self.file_edit = QLineEdit()
@@ -486,7 +494,7 @@ class PackView(QWidget):
         """
         file_text = self.file_edit.text().strip()  # string path
         position = self.slot_spin.value()
-        new_name = None  # could add QLineEdit for custom name if desired
+        new_name = self.race_name.text().strip()  # could add QLineEdit for custom name if desired
 
         error = self.validate(file_text, position, new_name)
         if error:
@@ -495,18 +503,18 @@ class PackView(QWidget):
 
         self.show_are_you_sure_dlg(file_text, position, new_name)
 
-    def validate(self, file: str, position: int, new_name: str | None) -> None | str:
+    def validate(self, file: str, position: int, new_name: str) -> None | str:
         path = Path(file)
+        if not new_name.replace(" ", "").isalnum():
+            return "No special symbols in the name"
 
-        # Name validation
-        if new_name is not None:
-            try:
-                ascii_name = new_name.encode("ascii")
-            except UnicodeEncodeError:
-                return "Race name must contain only ASCII characters"
-            length = len(ascii_name)
-            if length == 0 or length > MAX_NAME:
-                return f"Race names need to be between 1..{MAX_NAME} characters long"
+        try:
+            ascii_name = new_name.encode("ascii")
+        except UnicodeEncodeError:
+            return "Race name must contain only ASCII characters"
+        length = len(ascii_name)
+        if length == 0 or length > MAX_NAME:
+            return f"Race names need to be between 1..{MAX_NAME} characters long"
 
         # Slot validation
         if position < 0 or position > RACE_QTD - 1:
@@ -545,6 +553,7 @@ class PackView(QWidget):
         pack(memcard, profile, str(file), position, new_name)
         QMessageBox.information(self, "Success", "Race packed!")
 
+
     def open_file_dlg(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
             self,
@@ -554,6 +563,13 @@ class PackView(QWidget):
         )
         if file_path:
             self.file_edit.setText(file_path)
+            filename = os.path.basename(file_path)
+            # Expect format: name.city.mc3race
+            if filename.lower().endswith(".mc3race"):
+                base = filename[:-len(".mc3race")]
+                # Remove last ".city"
+                name = base.rsplit(".", 1)[0]
+                self.race_name.setText(name)
 
     def show_error_dlg(self, error: str) -> None:
         QMessageBox.critical(self, "Error", error)
@@ -580,9 +596,6 @@ class PackView(QWidget):
     
         return model
 
-    # --------------------
-    # Confirmation dialog
-    # --------------------
     def show_are_you_sure_dlg(self, file: str, position: int, new_name: str | None) -> None:
         reply = QMessageBox.question(
             self,

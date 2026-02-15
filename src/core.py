@@ -4,6 +4,7 @@ from mymcplus.ps2mc import ps2mc
 import struct
 import os
 from math import floor
+import re
 
 RACE_BASE = 0x4
 CITIES = ["SD", "ATL", "DET", "TOK"]
@@ -76,13 +77,19 @@ def extract(
         .replace("\x00", "")
     )
 
-    # Ensure correct extension
     base, ext = os.path.splitext(filename)
+    base = re.sub(r"[^A-Za-z0-9_-]", "", base)
+    
+    if not base:
+        base = "race"
+    
     city_lower = city_str.lower()
-
     expected_ext = f".{city_lower}.mc3race"
+    
     if ext.lower() != expected_ext:
         filename = f"{base}{expected_ext}"
+    else:
+        filename = f"{base}{ext}"
 
     # Write file safely
     os.makedirs(directory, exist_ok=True)
@@ -189,4 +196,3 @@ def write_races_file(memcard: ps2mc, profile: str, racefile: bytes) -> None:
     f = memcard.open(f'BASLUS-21355{profile}/file01', "wb")
     f.write(racefile)
     f.close()
-    memcard.close()
