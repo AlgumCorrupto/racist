@@ -19,8 +19,13 @@ import qt_themes
 
 from PySide6.QtCore import QObject, Signal
 import re
+import sys
 
 from configparser import ConfigParser
+
+def resource(relative_path):
+    base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
 
 class History(QObject):
     def __init__(self):
@@ -81,6 +86,7 @@ class History(QObject):
     
         with open(ini_file, "w") as f:
             goodies.write(f)
+
 class AppState(QObject):
     profileChanged = Signal(object)
     memcardChanged = Signal(object)
@@ -151,7 +157,7 @@ class MainView(QWidget):
         self.header_label = QLabel()
         self.header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        pixmap = QPixmap("./assets/header.png")
+        pixmap = QPixmap(resource("assets/header.png"))
         
         if pixmap.isNull():
             print("HEADER FAILED TO LOAD")
@@ -736,7 +742,7 @@ def main():
 
     main_wind = MainView()
     main_wind.setWindowTitle("Race Instrument")
-    main_wind.setWindowIcon(QIcon("./assets/icon.png"))
+    main_wind.setWindowIcon(QIcon(resource("assets/icon.png")))
 
     main_wind.setWindowFlags(
         Qt.WindowType.Window |
