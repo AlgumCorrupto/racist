@@ -1,3 +1,5 @@
+# not used at all
+# obsolete by the UI version
 from .core import *
 
 def main():

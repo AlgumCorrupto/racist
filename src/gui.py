@@ -1,6 +1,6 @@
 from io import BufferedRandom, BufferedReader, FileIO
 from PySide6.QtGui import (
-    QStandardItemModel, QStandardItem
+    QIcon, QPixmap, QStandardItemModel, QStandardItem
 )
 from .core import *
 from PySide6.QtWidgets import (
@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QListView, QFrame, QTabWidget, QTableView,
     QMessageBox, QPushButton, QHBoxLayout, QComboBox, QHeaderView
 )
+
 from PySide6.QtWidgets import QAbstractItemView
 from mymcplus.ps2mc import ps2mc, DF_DIR, DF_EXISTS
 from typing import cast
@@ -75,25 +76,55 @@ class MainView(QWidget):
         self.history = []
         self.state = AppState()
     
-        # Create the back button
+        # Back button
         self.back_button = QPushButton("Back")
         self.back_button.clicked.connect(self.back)
-        self.back_button.setEnabled(False)  # initially disabled
+        self.back_button.setEnabled(False)
     
-        # Layout for back button + stack
+        # Header image
+        self.header_label = QLabel()
+        self.header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        
+        pixmap = QPixmap("./assets/header.png")
+        
+        if pixmap.isNull():
+            print("HEADER FAILED TO LOAD")
+        
+        scaled = pixmap.scaled(
+            350,
+            60,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation
+        )
+        
+        self.header_label.setPixmap(scaled)
+        self.header_label.setMinimumHeight(40)
+
+    
+        # ---- Layout ----
         main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(8)
+        
+        # Header at top
+        main_layout.addWidget(self.header_label)
+        
+        # Stack fills available space
+        main_layout.addWidget(self.stack, stretch=1)
+        
+        # Bottom row (back button)
+        bottom_layout = QHBoxLayout()
+        bottom_layout.addStretch()                 # push button to center
+        bottom_layout.addWidget(self.back_button)
+        bottom_layout.addStretch()
+        
+        main_layout.addLayout(bottom_layout)
     
-        # Optional: put back button in a horizontal layout
-        top_layout = QHBoxLayout()
-        top_layout.addWidget(self.back_button)
-        top_layout.addStretch()  # push button to left
-    
-        main_layout.addLayout(top_layout)
-        main_layout.addWidget(self.stack)
-    
+        # Signals
         self.state.windowPushed.connect(self.push)
         self.state.windowPopped.connect(self.pop)
     
+        # First page
         first = MemcardSelect(self.state)
         self.state.windowPushed.emit(first)
 
@@ -466,7 +497,9 @@ class PackView(QWidget):
         # Name input
         self.race_name = QLineEdit()
         self.race_name.setMaxLength(MAX_NAME)
+        self.race_name.setPlaceholderText("Name of the race")
         form_layout.addRow("Name:", self.race_name)
+
         # File input
         file_layout = QHBoxLayout()
         self.file_edit = QLineEdit()
@@ -552,7 +585,7 @@ class PackView(QWidget):
         profile = self.state.profile
         pack(memcard, profile, str(file), position, new_name)
         QMessageBox.information(self, "Success", "Race packed!")
-
+        self.table.setModel(self.build_race_model())
 
     def open_file_dlg(self) -> None:
         file_path, _ = QFileDialog.getOpenFileName(
@@ -612,13 +645,25 @@ class PackView(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             self.pack(file, position, new_name)
 
-
 def main():
     app = QApplication()
     qt_themes.set_theme('monokai')
+
     main_wind = MainView()
     main_wind.setWindowTitle("RACe InSTtrument")
+    main_wind.setWindowIcon(QIcon("./assets/icon.png"))
+
+    main_wind.setWindowFlags(
+        Qt.WindowType.Window |
+        Qt.WindowType.WindowMinimizeButtonHint |
+        Qt.WindowType.WindowCloseButtonHint
+    )
+
+    # Set initial size (floating, not fullscreen)
+    main_wind.resize(400, 300)
+
     app.aboutToQuit.connect(main_wind.state.store_state)
+
     main_wind.show()
     app.exec()
 
