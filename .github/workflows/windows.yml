@@ -1,4 +1,4 @@
-name: Build Executable
+name: Windows Build
 
 on:
   push:
