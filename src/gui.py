@@ -24,7 +24,7 @@ import sys
 from configparser import ConfigParser
 
 def resource(relative_path):
-    base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+    base_path = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(sys.argv[0])))
     return os.path.join(base_path, relative_path)
 
 class History(QObject):
@@ -156,8 +156,8 @@ class MainView(QWidget):
         # Header image
         self.header_label = QLabel()
         self.header_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        pixmap = QPixmap(resource("assets/header.png"))
+        header_img = resource("assets/header.png")
+        pixmap = QPixmap(header_img)
         
         if pixmap.isNull():
             print("HEADER FAILED TO LOAD")
@@ -377,10 +377,13 @@ class MemcardSelect(QWidget):
         self.state.history.memcard_path = memcard_path
 
     def open_file_dlg(self) -> None:
+        dir = Path(self.path_edit.text()).parent
+        dir_str = str(dir) if dir.exists() else ""
+
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Select PS2 Memory Card",
-            "",
+            dir_str,
             "PS2 Memory Card (*.ps2 *.bin);;All Files (*)"
         )
 
@@ -478,7 +481,9 @@ class ExtractView(QWidget):
         main_layout.addLayout(btn_layout)
 
     def open_directory_dlg(self) -> None:
-        directory = QFileDialog.getExistingDirectory(self, "Select Output Directory")
+        dir = Path(self.dir_edit.text())
+        dir_txt = str(dir) if dir.exists() else ""
+        directory = QFileDialog.getExistingDirectory(self, "Select Output Directory",  dir_txt)
         if directory:
             self.dir_edit.setText(directory)
 
@@ -675,10 +680,12 @@ class PackView(QWidget):
         self.table.setModel(self.build_race_model())
 
     def open_file_dlg(self) -> None:
+        dir = Path(self.file_edit.text()).parent
+        dir_text = str(dir) if dir.exists() else ""
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Select Race File",
-            "",
+            dir_text,
             "Race Files (*.mc3race);;All Files (*)"
         )
         if file_path:
