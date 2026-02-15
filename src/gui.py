@@ -377,10 +377,11 @@ class MemcardSelect(QWidget):
         self.state.history.memcard_path = memcard_path
 
     def open_file_dlg(self) -> None:
+        dir = str(Path(self.path_edit.text()).parent)
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Select PS2 Memory Card",
-            "",
+            dir,
             "PS2 Memory Card (*.ps2 *.bin);;All Files (*)"
         )
 
@@ -478,7 +479,7 @@ class ExtractView(QWidget):
         main_layout.addLayout(btn_layout)
 
     def open_directory_dlg(self) -> None:
-        directory = QFileDialog.getExistingDirectory(self, "Select Output Directory")
+        directory = QFileDialog.getExistingDirectory(self, "Select Output Directory", self.dir_edit.text())
         if directory:
             self.dir_edit.setText(directory)
 
@@ -675,10 +676,11 @@ class PackView(QWidget):
         self.table.setModel(self.build_race_model())
 
     def open_file_dlg(self) -> None:
+        dir = str(Path(self.file_edit.text()).parent)
         file_path, _ = QFileDialog.getOpenFileName(
             self,
             "Select Race File",
-            "",
+            dir,
             "Race Files (*.mc3race);;All Files (*)"
         )
         if file_path:
