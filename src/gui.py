@@ -416,7 +416,6 @@ class ActionSelect(QWidget):
         view_btn.setEnabled(False)
 
         # Add to layout
-        layout.addStretch()          # push buttons toward center
         layout.addWidget(extract_btn)
         layout.addWidget(pack_btn)
         layout.addWidget(view_btn)
@@ -531,13 +530,21 @@ class ExtractView(QWidget):
         race_info = get_all_race_info(racefile) # Create the model 
         model = QStandardItemModel() 
         model.setHorizontalHeaderLabels(["Name", "City", "Slot", "Offset"]) 
-        for name, offset, city, code in race_info: 
-            # Create items for each column 
-            name_item   = QStandardItem(name) 
-            city_item   = QStandardItem(city) 
-            code_item   = QStandardItem(str(code)) 
-            offset_item = QStandardItem(hex(offset)) # Add the row to the model 
-            model.appendRow([name_item, city_item, code_item, offset_item]) 
+
+        for name, offset, city, code in race_info:
+            name_item = QStandardItem(name)
+            city_item = QStandardItem(city)
+        
+            # Convert to int for sorting
+            code_item = QStandardItem()
+            code_item.setData(code, Qt.ItemDataRole.DisplayRole)  # display and sort as number
+
+            # Offset column displayed as hex but sorted numerically
+            offset_item = QStandardItem(f"0x{offset:04X}")  # display as hex
+            offset_item.setData(offset, Qt.ItemDataRole.UserRole)  # numeric value for sorting
+
+            model.appendRow([name_item, city_item, code_item, offset_item])
+
         return model
 
     def extract_selected(self, races: tuple[str], directory: Path) -> None:
@@ -715,16 +722,21 @@ class PackView(QWidget):
         # Create the model
         model = QStandardItemModel()
         model.setHorizontalHeaderLabels(["Name", "City", "Slot", "Offset"])
-    
+
         for name, offset, city, code in race_info:
-            # Create items for each column
             name_item = QStandardItem(name)
             city_item = QStandardItem(city)
-            code_item = QStandardItem(str(code))
-            offset_item = QStandardItem(hex(offset))
-    
-            # Add the row to the model
+        
+            # Convert to int for sorting
+            code_item = QStandardItem()
+            code_item.setData(code, Qt.ItemDataRole.DisplayRole)  # display and sort as number
+
+            # Offset column displayed as hex but sorted numerically
+            offset_item = QStandardItem(f"0x{offset:04X}")  # display as hex
+            offset_item.setData(offset, Qt.ItemDataRole.UserRole)  # numeric value for sorting
+
             model.appendRow([name_item, city_item, code_item, offset_item])
+
     
         return model
 
