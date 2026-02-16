@@ -546,7 +546,8 @@ class ExtractView(QWidget):
 
         for race in races:
             extract_from_name(memcard, profile, race, None, str(directory) + "/")
-
+        self.state.history.extract_output_directory = directory
+        
         QMessageBox.information(self, "Success!", f"Races extracted at {directory}")
 
     def extract_all(self, directory: Path) -> None:
