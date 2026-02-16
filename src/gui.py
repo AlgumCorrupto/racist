@@ -473,7 +473,7 @@ class ExtractView(QWidget):
         extract_all_btn = QPushButton("Extract All")
         extract_all_btn.clicked.connect(self.handle_extract_all)
 
-        btn_layout.addStretch()
+        #btn_layout.addStretch()
         btn_layout.addWidget(extract_selected_btn)
         btn_layout.addWidget(extract_all_btn)
 
@@ -614,7 +614,8 @@ class PackView(QWidget):
 
         submit_btn = QPushButton("Pack Race")
         submit_btn.clicked.connect(self.submit)  # directly call submit
-        main_layout.addWidget(submit_btn, alignment=Qt.AlignmentFlag.AlignRight)
+        #main_layout.addWidget(submit_btn, alignment=Qt.AlignmentFlag.AlignRight)
+        main_layout.addWidget(submit_btn)
 
         if self.state.history.pack_race_file is not None:
             self.set_file(str(self.state.history.pack_race_file))
